@@ -8,6 +8,8 @@ import Spinner from '../components/ui/Spinner';
 import { Save, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+const DEFAULT_API_BASE_URL = 'https://wabizpro.onrender.com/api';
+
 const Settings = () => {
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(true);
@@ -162,7 +164,7 @@ const Settings = () => {
                  <h4 className="font-semibold text-sm mb-2 text-text-primary">Webhook Configuration Values to use in Meta:</h4>
                  <div className="grid grid-cols-[100px_1fr] gap-2 text-sm">
                    <div className="font-medium text-text-secondary">Callback URL:</div>
-                   <div className="font-mono bg-white px-2 py-0.5 rounded border border-border truncate">{import.meta.env.VITE_API_BASE_URL || 'https://yourdomain.com/api'}/webhook/whatsapp</div>
+                   <div className="font-mono bg-white px-2 py-0.5 rounded border border-border truncate">{import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL}/webhook/whatsapp</div>
                    <div className="font-medium text-text-secondary">Verify Token:</div>
                    <div className="font-mono bg-white px-2 py-0.5 rounded border border-border">{business.webhookVerifyToken}</div>
                  </div>

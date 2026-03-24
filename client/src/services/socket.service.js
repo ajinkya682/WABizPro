@@ -1,5 +1,7 @@
 import { io } from 'socket.io-client';
 
+const DEFAULT_SOCKET_URL = 'https://wabizpro.onrender.com';
+
 class SocketService {
   socket = null;
 
@@ -12,7 +14,7 @@ class SocketService {
     const baseUrl =
       import.meta.env.VITE_SOCKET_URL ||
       import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, '') ||
-      'http://localhost:5001';
+      DEFAULT_SOCKET_URL;
 
     this.socket = io(baseUrl, {
       transports: ['websocket', 'polling'],
