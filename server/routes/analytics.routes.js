@@ -1,0 +1,10 @@
+const express = require('express');
+const router = express.Router();
+const { protect } = require('../middleware/auth.middleware');
+const ctrl = require('../controllers/analytics.controller');
+router.get('/overview', protect, ctrl.getOverview);
+router.get('/delivery-rates', protect, ctrl.getDeliveryRates);
+router.get('/messages', protect, ctrl.getMessageVolume);
+router.get('/campaigns', protect, ctrl.getCampaignPerformance);
+router.get('/contacts-growth', protect, ctrl.getContactsGrowth);
+module.exports = router;

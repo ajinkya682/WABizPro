@@ -1,0 +1,13 @@
+const express = require('express');
+const router = express.Router();
+const { protect } = require('../middleware/auth.middleware');
+const ctrl = require('../controllers/auth.controller');
+router.post('/register', ctrl.register);
+router.post('/login', ctrl.login);
+router.post('/logout', ctrl.logout);
+router.post('/forgot-password', ctrl.forgotPassword);
+router.post('/reset-password/:token', ctrl.resetPassword);
+router.get('/verify-email/:token', ctrl.verifyEmail);
+router.get('/me', protect, ctrl.getMe);
+router.put('/me', protect, ctrl.updateMe);
+module.exports = router;

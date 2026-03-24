@@ -1,0 +1,11 @@
+const express = require('express');
+const router = express.Router();
+const { protect } = require('../middleware/auth.middleware');
+const ctrl = require('../controllers/inbox.controller');
+router.get('/conversations', protect, ctrl.getConversations);
+router.get('/conversations/:id', protect, ctrl.getMessages);
+router.post('/conversations/:id/reply', protect, ctrl.reply);
+router.post('/conversations/:id/resolve', protect, ctrl.resolve);
+router.post('/conversations/:id/reopen', protect, ctrl.reopen);
+router.post('/conversations/:id/assign', protect, ctrl.assign);
+module.exports = router;

@@ -1,0 +1,12 @@
+const express = require('express');
+const router = express.Router();
+const { protect } = require('../middleware/auth.middleware');
+const ctrl = require('../controllers/contact.controller');
+router.get('/', protect, ctrl.getAll);
+router.post('/', protect, ctrl.create);
+router.get('/:id', protect, ctrl.getById);
+router.put('/:id', protect, ctrl.update);
+router.delete('/:id', protect, ctrl.remove);
+router.post('/:id/tag', protect, ctrl.addTag);
+router.delete('/:id/tag/:tag', protect, ctrl.removeTag);
+module.exports = router;

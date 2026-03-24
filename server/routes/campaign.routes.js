@@ -1,0 +1,14 @@
+const express = require('express');
+const router = express.Router();
+const { protect } = require('../middleware/auth.middleware');
+const ctrl = require('../controllers/campaign.controller');
+router.get('/', protect, ctrl.getAll);
+router.post('/', protect, ctrl.create);
+router.get('/:id', protect, ctrl.getById);
+router.put('/:id', protect, ctrl.update);
+router.delete('/:id', protect, ctrl.remove);
+router.post('/:id/send', protect, ctrl.send);
+router.post('/:id/pause', protect, ctrl.pause);
+router.post('/:id/resume', protect, ctrl.resume);
+router.get('/:id/stats', protect, ctrl.getStats);
+module.exports = router;
