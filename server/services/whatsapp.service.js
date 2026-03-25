@@ -12,6 +12,14 @@ const extractWhatsAppErrorMessage = (error, fallbackMessage = 'WhatsApp request 
   if (isAxiosError(error)) {
     const providerError = error.response?.data?.error;
     if (providerError) {
+      if (providerError.code === 190 && providerError.error_subcode === 463) {
+        return 'Your Meta system user access token has expired. Generate a new token in Meta and save it in Settings.';
+      }
+
+      if (providerError.code === 190) {
+        return 'Your Meta system user access token is invalid. Generate a valid token in Meta and save it in Settings.';
+      }
+
       const parts = [providerError.message];
       if (providerError.error_user_title) parts.push(providerError.error_user_title);
       if (providerError.error_user_msg) parts.push(providerError.error_user_msg);
