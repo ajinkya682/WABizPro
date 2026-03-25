@@ -3,8 +3,22 @@ const axios = require('axios');
 const GRAPH_API_VERSION = process.env.META_GRAPH_API_VERSION || 'v23.0';
 
 const normalizeRecipient = (phone = '') => phone.replace(/\D/g, '');
+const normalizeLanguageCode = (language = '') => String(language).trim().toLowerCase().replace(/-/g, '_');
 
 const isAxiosError = (error) => Boolean(error?.isAxiosError);
+
+const createWhatsAppProviderError = (error, fallbackMessage = 'WhatsApp request failed') => {
+  const providerError = error?.response?.data?.error;
+  const message = extractWhatsAppErrorMessage(error, fallbackMessage);
+  const wrappedError = new Error(message);
+
+  if (providerError?.code) wrappedError.code = providerError.code;
+  if (providerError?.error_subcode) wrappedError.subcode = providerError.error_subcode;
+  if (error?.response?.status) wrappedError.httpStatus = error.response.status;
+  if (providerError) wrappedError.providerError = providerError;
+
+  return wrappedError;
+};
 
 const extractWhatsAppErrorMessage = (error, fallbackMessage = 'WhatsApp request failed') => {
   if (!error) return fallbackMessage;
@@ -51,6 +65,40 @@ const getMapValue = (mapLike, key) => {
   if (!mapLike) return undefined;
   if (typeof mapLike.get === 'function') return mapLike.get(key);
   return mapLike[key];
+};
+
+const listMetaTemplates = async ({
+  business,
+  fields = 'id,name,status,language,category',
+}) => {
+  ensureMessagingConfig(business, ['token', 'wabaId']);
+
+  const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${business.wabaId}/message_templates`;
+  const templates = [];
+  let after;
+
+  try {
+    do {
+      const response = await axios.get(url, {
+        headers: {
+          Authorization: `Bearer ${business.whatsappAccessToken}`,
+        },
+        params: {
+          fields,
+          limit: 250,
+          ...(after ? { after } : {}),
+        },
+        timeout: 30000,
+      });
+
+      templates.push(...(response.data?.data || []));
+      after = response.data?.paging?.cursors?.after;
+    } while (after);
+  } catch (error) {
+    throw createWhatsAppProviderError(error, 'Failed to load WhatsApp templates from Meta');
+  }
+
+  return templates;
 };
 
 const buildTemplateParameters = (template, contact) => {
@@ -109,31 +157,22 @@ const buildMetaTemplateComponents = (components = []) => (
 
 const syncTemplateStatuses = async ({ business, templates }) => {
   if (!Array.isArray(templates) || templates.length === 0) return templates;
-  ensureMessagingConfig(business, ['token', 'wabaId']);
-
-  const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${business.wabaId}/message_templates`;
-  const response = await axios.get(url, {
-    headers: {
-      Authorization: `Bearer ${business.whatsappAccessToken}`,
-    },
-    params: {
-      fields: 'id,name,status,language,category',
-      limit: 250,
-    },
-    timeout: 30000,
+  const metaTemplates = await listMetaTemplates({
+    business,
+    fields: 'id,name,status,language,category',
   });
 
   const templateMap = new Map();
-  for (const metaTemplate of response.data?.data || []) {
-    const languageKey = String(metaTemplate.language || '').toLowerCase();
+  for (const metaTemplate of metaTemplates) {
+    const languageKey = normalizeLanguageCode(metaTemplate.language);
     templateMap.set(`${metaTemplate.name}:${languageKey}`, metaTemplate);
     templateMap.set(metaTemplate.name, metaTemplate);
   }
 
   return templates.map((template) => {
     const metaTemplate =
-      (template.waTemplateId && (response.data?.data || []).find((item) => item.id === template.waTemplateId)) ||
-      templateMap.get(`${template.name}:${String(template.language || '').toLowerCase()}`) ||
+      (template.waTemplateId && metaTemplates.find((item) => item.id === template.waTemplateId)) ||
+      templateMap.get(`${template.name}:${normalizeLanguageCode(template.language)}`) ||
       templateMap.get(template.name);
 
     if (!metaTemplate) return { ...template, metaStatus: 'MISSING' };
@@ -147,6 +186,18 @@ const syncTemplateStatuses = async ({ business, templates }) => {
       metaStatus: metaTemplate.status || template.status,
     };
   });
+};
+
+const findMetaTemplateByNameAndLanguage = async ({ business, name, language }) => {
+  const metaTemplates = await listMetaTemplates({
+    business,
+    fields: 'id,name,status,language,category,components',
+  });
+
+  return metaTemplates.find((template) => (
+    template.name === name &&
+    normalizeLanguageCode(template.language) === normalizeLanguageCode(language)
+  )) || null;
 };
 
 const submitTemplateForApproval = async ({ business, template }) => {
@@ -171,7 +222,7 @@ const submitTemplateForApproval = async ({ business, template }) => {
 
     return response.data;
   } catch (error) {
-    throw new Error(extractWhatsAppErrorMessage(error, 'Failed to submit template to Meta'));
+    throw createWhatsAppProviderError(error, 'Failed to submit template to Meta');
   }
 };
 
@@ -226,7 +277,7 @@ const sendTemplateMessage = async ({ business, template, contact }) => {
       timeout: 30000,
     });
   } catch (error) {
-    throw new Error(extractWhatsAppErrorMessage(error, 'WhatsApp template send failed'));
+    throw createWhatsAppProviderError(error, 'WhatsApp template send failed');
   }
 
   return response.data;
@@ -258,7 +309,7 @@ const sendTextMessage = async ({ business, contact, text }) => {
       timeout: 30000,
     });
   } catch (error) {
-    throw new Error(extractWhatsAppErrorMessage(error, 'WhatsApp text send failed'));
+    throw createWhatsAppProviderError(error, 'WhatsApp text send failed');
   }
 
   return response.data;
@@ -267,6 +318,8 @@ const sendTextMessage = async ({ business, contact, text }) => {
 module.exports = {
   ensureTemplateCanSend,
   extractWhatsAppErrorMessage,
+  findMetaTemplateByNameAndLanguage,
+  listMetaTemplates,
   sendTemplateMessage,
   sendTextMessage,
   submitTemplateForApproval,

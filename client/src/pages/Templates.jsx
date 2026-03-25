@@ -19,7 +19,7 @@ const Templates = () => {
     try {
       const res = await api.get('/templates');
       setTemplates(res.data.templates);
-    } catch (err) { toast.error('Failed to load templates'); }
+    } catch { toast.error('Failed to load templates'); }
     finally { setIsLoading(false); }
   };
 
@@ -40,8 +40,8 @@ const Templates = () => {
         components
       };
       
-      await api.post('/templates', payload);
-      toast.success('Template submitted to Meta');
+      const res = await api.post('/templates', payload);
+      toast.success(res.data?.message || 'Template submitted to Meta');
       setIsModalOpen(false);
       setFormData({ name: '', category: 'MARKETING', language: 'en_US', headerText: '', bodyText: '', footerText: '' });
       fetchTemplates();
@@ -54,7 +54,7 @@ const Templates = () => {
         await api.delete(`/templates/${id}`);
         setTemplates(ts => ts.filter(t => t._id !== id));
         toast.success('Deleted');
-      } catch (err) { toast.error('Failed to delete'); }
+      } catch { toast.error('Failed to delete'); }
     }
   };
 
