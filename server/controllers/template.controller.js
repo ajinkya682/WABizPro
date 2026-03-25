@@ -11,43 +11,52 @@ const getStoredLanguage = (template = {}) => template.language || template.local
 const upsertTemplateFromMeta = async ({ businessId, draft, metaTemplate }) => {
   const resolvedLanguage = metaTemplate.language || draft.language;
   const resolvedStatus = metaTemplate.status || 'PENDING';
+  const templateName = metaTemplate.name || draft.name;
+  const templateComponents =
+    Array.isArray(metaTemplate.components) && metaTemplate.components.length > 0
+      ? metaTemplate.components
+      : draft.components;
 
-  return Template.findOneAndUpdate(
-    {
-      businessId,
-      name: metaTemplate.name || draft.name,
-      $or: [
-        { localeCode: resolvedLanguage },
-        { language: resolvedLanguage },
-      ],
-    },
-    {
-      $set: {
-        category: metaTemplate.category || draft.category,
-        localeCode: resolvedLanguage,
-        components:
-          Array.isArray(metaTemplate.components) && metaTemplate.components.length > 0
-            ? metaTemplate.components
-            : draft.components,
-        status: resolvedStatus,
-        waTemplateId: metaTemplate.id,
-        approvedAt: resolvedStatus === 'APPROVED' ? new Date() : null,
+  const existingTemplate = await Template.findOne({
+    businessId,
+    name: templateName,
+    $or: [
+      { localeCode: resolvedLanguage },
+      { language: resolvedLanguage },
+    ],
+  });
+
+  if (existingTemplate) {
+    return Template.findOneAndUpdate(
+      { _id: existingTemplate._id, businessId },
+      {
+        $set: {
+          category: metaTemplate.category || draft.category,
+          localeCode: resolvedLanguage,
+          components: templateComponents,
+          status: resolvedStatus,
+          waTemplateId: metaTemplate.id,
+          approvedAt: resolvedStatus === 'APPROVED' ? new Date() : null,
+        },
+        $unset: {
+          language: '',
+        },
       },
-      $unset: {
-        language: '',
-      },
-      $setOnInsert: {
-        businessId,
-        name: metaTemplate.name || draft.name,
-        submittedAt: new Date(),
-      },
-    },
-    {
-      new: true,
-      upsert: true,
-      setDefaultsOnInsert: true,
-    }
-  );
+      { new: true }
+    );
+  }
+
+  return Template.create({
+    businessId,
+    name: templateName,
+    category: metaTemplate.category || draft.category,
+    localeCode: resolvedLanguage,
+    components: templateComponents,
+    status: resolvedStatus,
+    waTemplateId: metaTemplate.id,
+    submittedAt: new Date(),
+    approvedAt: resolvedStatus === 'APPROVED' ? new Date() : undefined,
+  });
 };
 
 const getExistingTemplateMessage = (template) => (
