@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
@@ -43,6 +45,15 @@ app.use('/api/business', require('./routes/business.routes'));
 app.use('/api/webhook', require('./routes/webhook.routes'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'OK', message: 'WABiz Pro API running 🚀' }));
+const clientDistPath = path.resolve(__dirname, '../client/dist');
+
+if (fs.existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
+  app.get(/^\/(?!api).*/, (req, res) => {
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+}
+
 app.use((req, res) => res.status(404).json({ message: 'Route not found' }));
 app.use((err, req, res, next) => { console.error(err.stack); res.status(500).json({ message: 'Internal server error' }); });
 

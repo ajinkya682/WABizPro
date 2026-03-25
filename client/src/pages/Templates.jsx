@@ -13,7 +13,7 @@ const Templates = () => {
   const [templates, setTemplates] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({ name: '', category: 'MARKETING', language: 'en', headerText: '', bodyText: '', footerText: '' });
+  const [formData, setFormData] = useState({ name: '', category: 'MARKETING', language: 'en_US', headerText: '', bodyText: '', footerText: '' });
 
   const fetchTemplates = async () => {
     try {
@@ -41,9 +41,9 @@ const Templates = () => {
       };
       
       await api.post('/templates', payload);
-      toast.success('Template created and ready to use');
+      toast.success('Template submitted to Meta');
       setIsModalOpen(false);
-      setFormData({ name: '', category: 'MARKETING', language: 'en', headerText: '', bodyText: '', footerText: '' });
+      setFormData({ name: '', category: 'MARKETING', language: 'en_US', headerText: '', bodyText: '', footerText: '' });
       fetchTemplates();
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to create template'); }
   };
@@ -80,8 +80,11 @@ const Templates = () => {
                     <h3 className="font-bold text-text-primary mb-1">{t.name}</h3>
                     <Badge variant="secondary" className="text-[10px]">{t.category}</Badge>
                   </div>
-                  <Badge variant={t.status === 'APPROVED' ? 'success' : t.status === 'REJECTED' ? 'danger' : 'warning'} className="text-[10px]">
-                    {t.status}
+                  <Badge
+                    variant={t.metaStatus === 'MISSING' ? 'danger' : t.status === 'APPROVED' ? 'success' : t.status === 'REJECTED' ? 'danger' : 'warning'}
+                    className="text-[10px]"
+                  >
+                    {t.metaStatus === 'MISSING' ? 'NOT IN META' : t.status}
                   </Badge>
                 </div>
                 <div className="p-4 flex-1 bg-[#ECE5DD] relative min-h-[150px]">
@@ -105,7 +108,7 @@ const Templates = () => {
               <FileText size={32} />
             </div>
             <h3 className="text-lg font-medium text-text-primary mb-1">No templates found</h3>
-            <p className="text-sm text-text-secondary mb-4 max-w-sm">Create pre-approved message templates to send broadcasts to your customers.</p>
+            <p className="text-sm text-text-secondary mb-4 max-w-sm">Create WhatsApp templates and wait for Meta approval before using them in campaigns.</p>
             <Button onClick={() => setIsModalOpen(true)}><Plus size={18} /> New Template</Button>
           </div>
         )}
@@ -123,6 +126,16 @@ const Templates = () => {
                 <option value="MARKETING">Marketing</option>
                 <option value="UTILITY">Utility</option>
                 <option value="AUTHENTICATION">Authentication</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-text-primary mb-1.5 block">Language</label>
+              <select value={formData.language} onChange={e => setFormData({...formData, language: e.target.value})} className="w-full px-4 py-2 bg-white border border-border rounded-lg outline-none focus:border-primary">
+                <option value="en_US">English (US)</option>
+                <option value="en_GB">English (UK)</option>
+                <option value="hi">Hindi</option>
+                <option value="mr">Marathi</option>
               </select>
             </div>
 

@@ -5,7 +5,10 @@ const Template = require('../models/Template');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const Business = require('../models/Business');
-const { sendTemplateMessage } = require('../services/whatsapp.service');
+const {
+  ensureTemplateCanSend,
+  sendTemplateMessage,
+} = require('../services/whatsapp.service');
 
 const sanitizeCampaignPayload = (payload = {}) => {
   const sanitized = {
@@ -104,9 +107,9 @@ exports.create = async (req, res) => {
     const template = await Template.findOne({
       _id: payload.templateId,
       businessId: req.user.businessId,
-      status: { $in: ['APPROVED', 'PENDING'] },
+      status: 'APPROVED',
     });
-    if (!template) return res.status(400).json({ message: 'Selected template is not available' });
+    if (!template) return res.status(400).json({ message: 'Selected template must be approved in Meta before it can be used in a campaign' });
 
     const campaign = await Campaign.create({
       ...payload,
@@ -158,6 +161,34 @@ exports.send = async (req, res) => {
     if (!campaign.templateId) return res.status(400).json({ message: 'Campaign template not found' });
 
     const recipients = await resolveRecipients(campaign, req.user.businessId);
+    if (recipients.length === 0) {
+      return res.status(400).json({ message: 'This campaign has no eligible opted-in contacts to send to.' });
+    }
+
+    const syncedTemplate = await ensureTemplateCanSend({
+      business,
+      template: campaign.templateId.toObject ? campaign.templateId.toObject() : campaign.templateId,
+    });
+    const templateNeedsUpdate =
+      campaign.templateId.status !== syncedTemplate.status ||
+      campaign.templateId.waTemplateId !== syncedTemplate.waTemplateId ||
+      campaign.templateId.language !== syncedTemplate.language;
+    campaign.templateId.status = syncedTemplate.status;
+    campaign.templateId.waTemplateId = syncedTemplate.waTemplateId;
+    campaign.templateId.language = syncedTemplate.language;
+    if (
+      templateNeedsUpdate
+    ) {
+      await Template.findOneAndUpdate(
+        { _id: campaign.templateId._id, businessId: req.user.businessId },
+        {
+          status: syncedTemplate.status,
+          waTemplateId: syncedTemplate.waTemplateId,
+          language: syncedTemplate.language,
+          approvedAt: syncedTemplate.status === 'APPROVED' ? new Date() : null,
+        }
+      );
+    }
 
     campaign.status = 'running';
     campaign.startedAt = new Date();
@@ -261,7 +292,11 @@ exports.send = async (req, res) => {
           : 'Campaign launched successfully! 🚀',
     });
   } catch (err) {
-    res.status(500).json({ message: err.message || 'Server error' });
+    const statusCode =
+      /template|whatsapp|recipient|contact|settings|approved|eligible/i.test(err.message || '')
+        ? 400
+        : 500;
+    res.status(statusCode).json({ message: err.message || 'Server error' });
   }
 };
 

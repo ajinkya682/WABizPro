@@ -5,6 +5,8 @@
   "main": "index.js",
   "tailwindcss": "3.4.0",
   "scripts": {
+    "start": "node server.js",
+    "build": "node -e \"console.log('Server build: no separate compile step required')\"",
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "npx nodemon server.js"
   },

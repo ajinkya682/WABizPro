@@ -67,7 +67,9 @@ const Campaigns = () => {
         .then((r) =>
           setTemplates(
             (r.data.templates || []).filter(
-              (template) => !["REJECTED", "PAUSED"].includes(template.status),
+              (template) =>
+                template.status === "APPROVED" &&
+                template.metaStatus !== "MISSING",
             ),
           ),
         )

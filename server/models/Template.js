@@ -3,7 +3,7 @@ const templateSchema = new mongoose.Schema({
   businessId: { type: mongoose.Schema.Types.ObjectId, ref: 'Business', required: true },
   name: { type: String, required: true },
   category: { type: String, enum: ['MARKETING', 'UTILITY', 'AUTHENTICATION'], default: 'MARKETING' },
-  language: { type: String, default: 'en' },
+  language: { type: String, default: 'en_US' },
   status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED', 'PAUSED'], default: 'PENDING' },
   waTemplateId: String,
   components: [{
