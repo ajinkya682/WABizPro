@@ -6,6 +6,8 @@ const {
   syncTemplateStatuses,
 } = require('../services/whatsapp.service');
 
+const getStoredLanguage = (template = {}) => template.language || template.localeCode || 'en_US';
+
 const upsertTemplateFromMeta = async ({ businessId, draft, metaTemplate }) => {
   const resolvedLanguage = metaTemplate.language || draft.language;
   const resolvedStatus = metaTemplate.status || 'PENDING';
@@ -14,12 +16,15 @@ const upsertTemplateFromMeta = async ({ businessId, draft, metaTemplate }) => {
     {
       businessId,
       name: metaTemplate.name || draft.name,
-      language: resolvedLanguage,
+      $or: [
+        { localeCode: resolvedLanguage },
+        { language: resolvedLanguage },
+      ],
     },
     {
       $set: {
         category: metaTemplate.category || draft.category,
-        language: resolvedLanguage,
+        localeCode: resolvedLanguage,
         components:
           Array.isArray(metaTemplate.components) && metaTemplate.components.length > 0
             ? metaTemplate.components
@@ -27,6 +32,9 @@ const upsertTemplateFromMeta = async ({ businessId, draft, metaTemplate }) => {
         status: resolvedStatus,
         waTemplateId: metaTemplate.id,
         approvedAt: resolvedStatus === 'APPROVED' ? new Date() : null,
+      },
+      $unset: {
+        language: '',
       },
       $setOnInsert: {
         businessId,
@@ -43,11 +51,11 @@ const upsertTemplateFromMeta = async ({ businessId, draft, metaTemplate }) => {
 };
 
 const getExistingTemplateMessage = (template) => (
-  `Template "${template.name}" already exists for ${template.language} and is ${template.status}.`
+  `Template "${template.name}" already exists for ${getStoredLanguage(template)} and is ${template.status}.`
 );
 
 const getSyncedTemplateMessage = (template) => (
-  `Template "${template.name}" already exists in Meta for ${template.language}. It has been synced into WABiz instead of creating a duplicate.`
+  `Template "${template.name}" already exists in Meta for ${getStoredLanguage(template)}. It has been synced into WABiz instead of creating a duplicate.`
 );
 
 exports.getAll = async (req, res) => {
@@ -76,7 +84,7 @@ exports.getAll = async (req, res) => {
             (
               template.status !== currentTemplates.get(template._id.toString())?.status ||
               template.waTemplateId !== currentTemplates.get(template._id.toString())?.waTemplateId ||
-              template.language !== currentTemplates.get(template._id.toString())?.language
+              getStoredLanguage(template) !== getStoredLanguage(currentTemplates.get(template._id.toString()))
             )
           ))
           .map((template) => ({
@@ -86,8 +94,11 @@ exports.getAll = async (req, res) => {
                 $set: {
                   status: template.status,
                   waTemplateId: template.waTemplateId,
-                  language: template.language,
+                  localeCode: getStoredLanguage(template),
                   approvedAt: template.status === 'APPROVED' ? new Date() : null,
+                },
+                $unset: {
+                  language: '',
                 },
               },
             },
@@ -123,7 +134,10 @@ exports.create = async (req, res) => {
     const existingTemplate = await Template.findOne({
       businessId: req.user.businessId,
       name: draft.name,
-      language: draft.language,
+      $or: [
+        { localeCode: draft.language },
+        { language: draft.language },
+      ],
     });
     if (existingTemplate) {
       return res.status(200).json({
@@ -185,8 +199,11 @@ exports.create = async (req, res) => {
     }
 
     const template = await Template.create({
-      ...draft,
       businessId: req.user.businessId,
+      name: draft.name,
+      category: draft.category,
+      localeCode: draft.language,
+      components: draft.components,
       status: metaTemplate.status || 'PENDING',
       waTemplateId: metaTemplate.id,
       submittedAt: new Date(),
@@ -208,9 +225,19 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
+    const updatePayload = { ...req.body };
+    if (updatePayload.language) {
+      updatePayload.localeCode = updatePayload.language;
+      delete updatePayload.language;
+    }
+
     const template = await Template.findOneAndUpdate(
       { _id: req.params.id, businessId: req.user.businessId, status: { $in: ['PENDING', 'REJECTED'] } },
-      req.body, { new: true }
+      {
+        $set: updatePayload,
+        $unset: { language: '' },
+      },
+      { new: true }
     );
     if (!template) return res.status(404).json({ message: 'Template not found or cannot be edited' });
     res.json({ template });

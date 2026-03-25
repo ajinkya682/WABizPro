@@ -10,6 +10,8 @@ const {
   sendTemplateMessage,
 } = require('../services/whatsapp.service');
 
+const getTemplateLanguage = (template = {}) => template.language || template.localeCode || 'en_US';
+
 const sanitizeCampaignPayload = (payload = {}) => {
   const sanitized = {
     name: payload.name?.trim(),
@@ -172,20 +174,25 @@ exports.send = async (req, res) => {
     const templateNeedsUpdate =
       campaign.templateId.status !== syncedTemplate.status ||
       campaign.templateId.waTemplateId !== syncedTemplate.waTemplateId ||
-      campaign.templateId.language !== syncedTemplate.language;
+      getTemplateLanguage(campaign.templateId) !== getTemplateLanguage(syncedTemplate);
     campaign.templateId.status = syncedTemplate.status;
     campaign.templateId.waTemplateId = syncedTemplate.waTemplateId;
-    campaign.templateId.language = syncedTemplate.language;
+    campaign.templateId.localeCode = getTemplateLanguage(syncedTemplate);
     if (
       templateNeedsUpdate
     ) {
       await Template.findOneAndUpdate(
         { _id: campaign.templateId._id, businessId: req.user.businessId },
         {
-          status: syncedTemplate.status,
-          waTemplateId: syncedTemplate.waTemplateId,
-          language: syncedTemplate.language,
-          approvedAt: syncedTemplate.status === 'APPROVED' ? new Date() : null,
+          $set: {
+            status: syncedTemplate.status,
+            waTemplateId: syncedTemplate.waTemplateId,
+            localeCode: getTemplateLanguage(syncedTemplate),
+            approvedAt: syncedTemplate.status === 'APPROVED' ? new Date() : null,
+          },
+          $unset: {
+            language: '',
+          },
         }
       );
     }

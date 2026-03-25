@@ -67,6 +67,10 @@ const getMapValue = (mapLike, key) => {
   return mapLike[key];
 };
 
+const getTemplateLanguage = (template = {}) => (
+  template.language || template.localeCode || 'en_US'
+);
+
 const listMetaTemplates = async ({
   business,
   fields = 'id,name,status,language,category',
@@ -172,7 +176,7 @@ const syncTemplateStatuses = async ({ business, templates }) => {
   return templates.map((template) => {
     const metaTemplate =
       (template.waTemplateId && metaTemplates.find((item) => item.id === template.waTemplateId)) ||
-      templateMap.get(`${template.name}:${normalizeLanguageCode(template.language)}`) ||
+      templateMap.get(`${template.name}:${normalizeLanguageCode(getTemplateLanguage(template))}`) ||
       templateMap.get(template.name);
 
     if (!metaTemplate) return { ...template, metaStatus: 'MISSING' };
@@ -181,7 +185,8 @@ const syncTemplateStatuses = async ({ business, templates }) => {
       ...template,
       waTemplateId: metaTemplate.id || template.waTemplateId,
       status: metaTemplate.status || template.status,
-      language: metaTemplate.language || template.language,
+      localeCode: metaTemplate.language || getTemplateLanguage(template),
+      language: metaTemplate.language || getTemplateLanguage(template),
       category: metaTemplate.category || template.category,
       metaStatus: metaTemplate.status || template.status,
     };
@@ -196,7 +201,7 @@ const findMetaTemplateByNameAndLanguage = async ({ business, name, language }) =
 
   return metaTemplates.find((template) => (
     template.name === name &&
-    normalizeLanguageCode(template.language) === normalizeLanguageCode(language)
+    normalizeLanguageCode(getTemplateLanguage(template)) === normalizeLanguageCode(language)
   )) || null;
 };
 
@@ -207,7 +212,7 @@ const submitTemplateForApproval = async ({ business, template }) => {
   const payload = {
     name: template.name,
     category: template.category,
-    language: template.language,
+    language: getTemplateLanguage(template),
     components: buildMetaTemplateComponents(template.components),
   };
 
@@ -259,7 +264,7 @@ const sendTemplateMessage = async ({ business, template, contact }) => {
     type: 'template',
     template: {
       name: template.name,
-      language: { code: template.language || 'en' },
+      language: { code: getTemplateLanguage(template) || 'en' },
     },
   };
 
